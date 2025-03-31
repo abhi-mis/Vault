@@ -30,8 +30,9 @@ export default function NewInterview() {
     const fetchPositionsAndDifficulty = async () => {
       try {
         const token = localStorage.getItem('token');
+        const url = process.env.NEXT_PUBLIC_API_URL;
         const { data } = await axios.get(
-          'https://vault-4lq2.onrender.com/api/interviews/positions',
+          `${url}/api/interviews/positions`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         setPositions(data.positions);
@@ -53,8 +54,9 @@ export default function NewInterview() {
     setIsStarting(true);
     try {
       const token = localStorage.getItem('token');
+      const url = process.env.NEXT_PUBLIC_API_URL;
       const { data } = await axios.post(
-        'https://vault-4lq2.onrender.com/api/interviews',
+        `${url}/api/interviews`,
         { 
           role: selectedRole,
           difficulty: selectedDifficulty 

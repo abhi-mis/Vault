@@ -69,10 +69,10 @@ const Interview = () => {
       router.push('/login');
       return;
     }
-
+    const url = process.env.NEXT_PUBLIC_API_URL;
     const fetchQuestions = async () => {
       try {
-        const response = await axios.get(`https://vault-4lq2.onrender.com/api/interviews/${id}/questions`, {
+        const response = await axios.get(`${url}/api/interviews/${id}/questions`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setInterviewData(response.data);
@@ -119,9 +119,9 @@ const Interview = () => {
         setErrorMessage('Invalid question data. Please refresh the page.');
         return;
       }
-
+      const url = process.env.NEXT_PUBLIC_API_URL;
       const response = await axios.post(
-        `https://vault-4lq2.onrender.com/api/interviews/${id}/answer`,
+        `${url}/api/interviews/${id}/answer`,
         {
           questionId: currentQuestion._id,
           answer: finalTranscript,

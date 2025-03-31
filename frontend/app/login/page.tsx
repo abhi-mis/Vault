@@ -23,7 +23,8 @@ export default function Login() {
 
     try {
       const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-      const { data } = await axios.post(`https://vault-4lq2.onrender.com${endpoint}`, formData);
+      const url = process.env.NEXT_PUBLIC_API_URL;
+      const { data } = await axios.post(`${url}${endpoint}`, formData);
       
       localStorage.setItem('token', data.token);
       router.push('/dashboard');

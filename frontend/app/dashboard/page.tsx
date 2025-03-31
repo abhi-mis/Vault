@@ -38,7 +38,8 @@ export default function Dashboard() {
   const fetchInterviews = async () => {
     try {
       const token = localStorage.getItem('token');
-      const { data } = await axios.get('https://vault-4lq2.onrender.com/api/interviews/user', {
+      const url = process.env.NEXT_PUBLIC_API_URL;
+      const { data } = await axios.get(`${url}/api/interviews/user`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setInterviews(data);
