@@ -5,74 +5,100 @@ const fetch = require('node-fetch');
 
 const router = express.Router();
 const token = process.env.OPENROUTER_API_KEY;
-const YOUR_SITE_URL = process.env.YOUR_SITE_URL;
-const YOUR_SITE_NAME = process.env.YOUR_SITE_NAME;
 
 // Function to generate interview questions based on the role
 const generateQuestionsForRole = async (role) => {
-  const prompt = `Generate 5 technical interview questions for a ${role} position. The questions should be challenging and cover important aspects of ${role} development. Format the response as a JSON array of strings containing only the questions.`;
+  const prompt = `Generate 5 technical interview questions for a ${role} position. Format each question as a complete sentence ending with a question mark. Return ONLY a JSON array of strings.
+
+Example format:
+[
+  "What is the difference between let and const in JavaScript?",
+  "Can you explain how React's virtual DOM works?",
+  "What are the benefits of using TypeScript over JavaScript?",
+  "How does event delegation work in the DOM?",
+  "What is the purpose of the useEffect hook in React?"
+]`;
 
   try {
-    console.log('Using OpenRouter API Key:', token);
-
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${token}`,
-        "HTTP-Referer": YOUR_SITE_URL,
-        "X-Title": YOUR_SITE_NAME,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "HTTP-Referer": process.env.SITE_URL || "http://localhost:3000",
+        "X-Title": process.env.SITE_NAME || "Technical Interview Assistant"
       },
       body: JSON.stringify({
         model: "sophosympatheia/rogue-rose-103b-v0.2:free",
         messages: [
           {
             role: "system",
-            content: "You are an expert technical interviewer. Generate challenging and relevant interview questions."
+            content: "You are an expert technical interviewer. Generate challenging and relevant interview questions. Always respond with a valid JSON array of strings."
           },
           {
             role: "user",
             content: prompt
           }
-        ]
+        ],
+        temperature: 0.7,
+        max_tokens: 1000
       })
     });
 
     if (!response.ok) {
       const errorData = await response.json();
       console.error('Error from OpenRouter API:', errorData);
-      throw new Error(`OpenRouter API error: ${errorData.error.message}`);
+      throw new Error(`OpenRouter API error: ${errorData.error?.message || 'Unknown error'}`);
     }
 
     const data = await response.json();
+    console.log('AI Response:', data.choices?.[0]?.message?.content);
     
     if (!data.choices?.[0]?.message?.content) {
-      console.error('Invalid response from AI model:', data);
       throw new Error('Invalid response from AI model');
     }
 
-    const questionsText = data.choices[0].message.content;
+    const questionsText = data.choices[0].message.content.trim();
     
+    // Try parsing as JSON first
     try {
       const questions = JSON.parse(questionsText);
-      if (!Array.isArray(questions) || questions.length === 0) {
-        throw new Error('Invalid questions format');
+      if (Array.isArray(questions) && questions.length > 0) {
+        // Validate each question ends with a question mark
+        const validQuestions = questions
+          .map(q => q.trim())
+          .filter(q => q.endsWith('?'));
+        
+        if (validQuestions.length >= 3) { // At least 3 valid questions
+          return validQuestions.slice(0, 5); // Return max 5 questions
+        }
       }
-      return questions;
     } catch (error) {
-      const extractedQuestions = questionsText
-        .split('\n')
-        .filter(line => line.trim().length > 0)
-        .map(line => line.replace(/^\d+\.\s*/, '').trim())
-        .filter(line => line.length > 0 && line.endsWith('?'))
-        .slice(0, 5);
-
-      if (extractedQuestions.length === 0) {
-        throw new Error('Failed to extract valid questions');
-      }
-
-      return extractedQuestions;
+      console.log('Failed to parse JSON response, attempting text extraction');
     }
+
+    // Fallback: Extract questions from text
+    const questionRegex = /(?:^|\n)(?:\d+\.\s*)?([^.\n]+\?)/g;
+    const matches = [...questionsText.matchAll(questionRegex)]
+      .map(match => match[1].trim())
+      .filter(q => q.length > 10 && q.endsWith('?')); // Ensure meaningful questions
+
+    if (matches.length >= 3) {
+      return matches.slice(0, 5);
+    }
+
+    // If we still don't have enough questions, try line-by-line extraction
+    const lineQuestions = questionsText
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 10 && line.endsWith('?'))
+      .slice(0, 5);
+
+    if (lineQuestions.length >= 3) {
+      return lineQuestions;
+    }
+
+    throw new Error('Failed to extract valid questions');
   } catch (error) {
     console.error('Error generating questions:', error);
     throw error;
@@ -88,23 +114,28 @@ const processAIResponse = async (content) => {
       if (typeof parsed.feedback === 'string' && typeof parsed.score === 'number') {
         return {
           feedback: parsed.feedback,
-          score: parsed.score
+          score: Math.min(Math.max(Math.round(parsed.score), 0), 10) // Ensure score is between 0-10
         };
       }
     } catch (e) {
       console.log('Failed to parse JSON response, attempting text extraction');
     }
 
-    // Try regex parsing with multiple patterns
+    // Enhanced regex patterns for better extraction
     const patterns = [
       // Pattern 1: JSON-like format with quotes
       {
         feedback: /["']?feedback["']?\s*:\s*["']([^"']+)["']/i,
-        score: /["']?score["']?\s*:\s*(\d+)/i
+        score: /["']?score["']?\s*:\s*(\d+(?:\.\d+)?)/i
       },
       // Pattern 2: Simple format
       {
-        feedback: /feedback:\s*([\s\S]*?)\n\nscore:\s*(\d+)/i
+        feedback: /feedback:\s*([\s\S]*?)\n\s*score:\s*(\d+(?:\.\d+)?)/i
+      },
+      // Pattern 3: Natural language format
+      {
+        feedback: /((?:feedback|response|evaluation):[^\n]*(?:\n(?![^\n]*score:)[^\n]*)*)/i,
+        score: /(?:score|rating|points?):\s*(\d+(?:\.\d+)?)/i
       }
     ];
 
@@ -114,20 +145,31 @@ const processAIResponse = async (content) => {
         const scoreMatch = content.match(pattern.score);
         
         if (feedbackMatch && scoreMatch) {
+          const score = Math.min(Math.max(Math.round(parseFloat(scoreMatch[1])), 0), 10);
           return {
             feedback: feedbackMatch[1].trim(),
-            score: parseInt(scoreMatch[1], 10)
+            score
           };
         }
       } else if (pattern.feedback) {
         const match = content.match(pattern.feedback);
         if (match && match[1] && match[2]) {
+          const score = Math.min(Math.max(Math.round(parseFloat(match[2])), 0), 10);
           return {
             feedback: match[1].trim(),
-            score: parseInt(match[2], 10)
+            score
           };
         }
       }
+    }
+
+    // Fallback: Extract any feedback-like content and assign a neutral score
+    const feedbackMatch = content.match(/([^.!?]+[.!?])\s*(?:\d+|score|rating|points?|\/10)?/i);
+    if (feedbackMatch) {
+      return {
+        feedback: feedbackMatch[1].trim(),
+        score: 5 // Neutral score when we can't extract one
+      };
     }
 
     throw new Error('Could not extract feedback and score from response');
@@ -195,7 +237,6 @@ router.get('/:id/questions', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Interview not found' });
     }
 
-    console.log('Sending questions:', interview.questions);
     res.json(interview.questions);
   } catch (error) {
     console.error('Error fetching questions:', error);
@@ -208,35 +249,26 @@ router.post('/:id/answer', authenticateToken, async (req, res) => {
   try {
     const { questionId, answer } = req.body;
     
-    // Add detailed validation
     if (!questionId) {
-      console.log('Missing questionId in request body:', req.body);
       return res.status(400).json({ message: 'Question ID is required' });
     }
     
     if (!answer || answer.trim() === '') {
-      console.log('Missing or empty answer in request body:', req.body);
       return res.status(400).json({ message: 'Answer is required and cannot be empty' });
     }
-
-    console.log('Processing answer submission:', { interviewId: req.params.id, questionId, answer });
 
     const interview = await Interview.findById(req.params.id);
     
     if (!interview) {
-      console.log('Interview not found:', req.params.id);
       return res.status(404).json({ message: 'Interview not found' });
     }
 
     if (interview.userId.toString() !== req.user.userId) {
-      console.log('Unauthorized access attempt:', { userId: req.user.userId, interviewUserId: interview.userId });
       return res.status(403).json({ message: 'Unauthorized access' });
     }
 
-    // Validate the question exists in the interview
     const questionIndex = interview.questions.findIndex(q => q._id.toString() === questionId);
     if (questionIndex === -1) {
-      console.log('Question not found in interview:', { questionId, interviewId: req.params.id });
       return res.status(404).json({ message: 'Question not found in this interview' });
     }
 
@@ -244,53 +276,49 @@ router.post('/:id/answer', authenticateToken, async (req, res) => {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${token}`,
-        "HTTP-Referer": YOUR_SITE_URL,
-        "X-Title": YOUR_SITE_NAME,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "HTTP-Referer": process.env.SITE_URL || "http://localhost:3000",
+        "X-Title": process.env.SITE_NAME || "Technical Interview Assistant"
       },
       body: JSON.stringify({
         model: "sophosympatheia/rogue-rose-103b-v0.2:free",
         messages: [
           { 
             role: "system", 
-            content: "You are an expert technical interviewer. Analyze the following interview answer and provide constructive feedback and a score out of 10. Return ONLY a JSON object with 'feedback' and 'score' fields, nothing else." 
+            content: "You are an expert technical interviewer. Analyze the following interview answer and provide constructive feedback and a score out of 10. Return a JSON object with 'feedback' and 'score' fields." 
           },
           { 
             role: "user", 
-            content: `Question: ${interview.questions[questionIndex].question}\nAnswer: ${answer}`
+            content: `Question: ${interview.questions[questionIndex].question}\nAnswer: ${answer}\n\nProvide feedback and score in JSON format like: {"feedback": "Your detailed feedback here", "score": 7}`
           }
-        ]
+        ],
+        temperature: 0.7
       })
     });
 
     if (!response.ok) {
       const errorData = await response.json();
       console.error('Error from OpenRouter API:', errorData);
-      throw new Error(`OpenRouter API error: ${errorData.error.message}`);
+      throw new Error(`OpenRouter API error: ${errorData.error?.message || 'Unknown error'}`);
     }
 
     const data = await response.json();
-    console.log('AI response:', data);
-
+    
     if (!data.choices?.[0]?.message?.content) {
       throw new Error('Invalid response format from AI');
     }
 
     const { feedback, score } = await processAIResponse(data.choices[0].message.content);
 
-    // Validate extracted data
     if (!feedback || typeof score !== 'number' || score < 0 || score > 10) {
-      console.error('Invalid feedback or score:', { feedback, score });
       throw new Error('Invalid feedback or score values');
     }
 
-    // Update the interview with the processed answer and feedback
     interview.questions[questionIndex].answer = answer;
     interview.questions[questionIndex].feedback = feedback;
     interview.questions[questionIndex].score = score;
 
     await interview.save();
-    console.log('Successfully saved answer and feedback');
 
     res.json({ feedback, score });
   } catch (error) {

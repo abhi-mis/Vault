@@ -51,7 +51,7 @@ export default function NewInterview() {
     try {
       const token = localStorage.getItem('token');
       const { data } = await axios.post(
-        'http://localhost:5000/api/interviews',
+        'https://vault-4lq2.onrender.com/api/interviews',
         { role: selectedRole },
         { headers: { Authorization: `Bearer ${token}` } }
       );

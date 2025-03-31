@@ -64,7 +64,7 @@ const Interview = () => {
 
     const fetchQuestions = async () => {
       try {
-        const response = await axios.get(`http://localhost:5000/api/interviews/${id}/questions`, {
+        const response = await axios.get(`https://vault-4lq2.onrender.com/api/interviews/${id}/questions`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setResponses(response.data);
@@ -113,7 +113,7 @@ const Interview = () => {
       }
 
       const response = await axios.post(
-        `http://localhost:5000/api/interviews/${id}/answer`,
+        `https://vault-4lq2.onrender.com/api/interviews/${id}/answer`,
         {
           questionId: currentQuestion._id,
           answer: finalTranscript,
