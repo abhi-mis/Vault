@@ -6,9 +6,47 @@ const fetch = require('node-fetch');
 const router = express.Router();
 const token = process.env.OPENROUTER_API_KEY;
 
-// Function to generate interview questions based on the role
-const generateQuestionsForRole = async (role) => {
-  const prompt = `Generate 5 technical interview questions for a ${role} position. Format each question as a complete sentence ending with a question mark. Return ONLY a JSON array of strings.
+// Predefined positions with their descriptions
+const POSITIONS = {
+  'SDE': 'Software Development Engineer - Full-time position focusing on building and maintaining software applications',
+  'Intern SDE': 'Software Development Engineer Intern - Entry-level position for students or recent graduates',
+  'Senior SDE': 'Senior Software Development Engineer - Leadership role with extensive development experience',
+  'Frontend Engineer': 'Frontend Development Specialist - Focus on user interfaces and web applications',
+  'Backend Engineer': 'Backend Development Specialist - Focus on server-side applications and databases',
+  'Full Stack Engineer': 'Full Stack Developer - Capable of working on both frontend and backend',
+  'DevOps Engineer': 'DevOps Specialist - Focus on deployment, automation, and infrastructure',
+  'Mobile Developer': 'Mobile Application Developer - Specializing in iOS/Android development',
+  'ML Engineer': 'Machine Learning Engineer - Focus on AI and machine learning applications',
+  'QA Engineer': 'Quality Assurance Engineer - Focus on testing and quality assurance'
+};
+
+// Difficulty level descriptions
+const DIFFICULTY_LEVELS = {
+  1: 'Basic - Fundamental concepts and simple problems',
+  2: 'Intermediate - Standard industry practices and moderate complexity',
+  3: 'Advanced - Complex scenarios and architectural decisions',
+  4: 'Expert - Advanced concepts and system design',
+  5: 'Master - Highly complex problems and cutting-edge technologies'
+};
+
+// Function to adjust prompt based on difficulty level
+const getDifficultyPrompt = (level) => {
+  const prompts = {
+    1: 'Focus on basic concepts and fundamentals. Questions should be suitable for beginners.',
+    2: 'Include moderate complexity questions covering standard practices.',
+    3: 'Ask about complex scenarios and architectural decisions.',
+    4: 'Focus on advanced concepts and system design challenges.',
+    5: 'Include highly complex problems and cutting-edge technology questions.'
+  };
+  return prompts[level] || prompts[3]; // Default to level 3 if not specified
+};
+
+// Function to generate interview questions based on the role and difficulty
+const generateQuestionsForRole = async (role, difficulty = 3) => {
+  const difficultyPrompt = getDifficultyPrompt(difficulty);
+  const prompt = `Generate 5 technical interview questions for a ${role} position at difficulty level ${difficulty}/5. ${difficultyPrompt}
+
+Format each question as a complete sentence ending with a question mark. Return ONLY a JSON array of strings.
 
 Example format:
 [
@@ -33,7 +71,7 @@ Example format:
         messages: [
           {
             role: "system",
-            content: "You are an expert technical interviewer. Generate challenging and relevant interview questions. Always respond with a valid JSON array of strings."
+            content: `You are an expert technical interviewer. Generate challenging and relevant interview questions at difficulty level ${difficulty}/5. Always respond with a valid JSON array of strings.`
           },
           {
             role: "user",
@@ -179,16 +217,40 @@ const processAIResponse = async (content) => {
   }
 };
 
+// Route to get available positions
+router.get('/positions', authenticateToken, (req, res) => {
+  res.json({
+    positions: Object.entries(POSITIONS).map(([id, description]) => ({
+      id,
+      description
+    })),
+    difficultyLevels: Object.entries(DIFFICULTY_LEVELS).map(([level, description]) => ({
+      level: parseInt(level),
+      description
+    }))
+  });
+});
+
 // Route to create a new interview session
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { role } = req.body;
+    const { role, difficulty } = req.body;
     
     if (!role) {
       return res.status(400).json({ message: 'Role is required' });
     }
 
-    const questions = await generateQuestionsForRole(role);
+    if (!POSITIONS[role]) {
+      return res.status(400).json({ message: 'Invalid role selected' });
+    }
+
+    // Validate difficulty level
+    const difficultyLevel = parseInt(difficulty) || 3;
+    if (difficultyLevel < 1 || difficultyLevel > 5) {
+      return res.status(400).json({ message: 'Difficulty level must be between 1 and 5' });
+    }
+
+    const questions = await generateQuestionsForRole(role, difficultyLevel);
     
     if (!questions || questions.length === 0) {
       return res.status(500).json({ message: 'Failed to generate interview questions' });
@@ -204,6 +266,7 @@ router.post('/', authenticateToken, async (req, res) => {
     const interview = new Interview({
       userId: req.user.userId,
       role,
+      difficulty: difficultyLevel,
       questions: formattedQuestions,
     });
 
@@ -231,13 +294,19 @@ router.get('/user', authenticateToken, async (req, res) => {
 // Route to fetch questions for a specific interview
 router.get('/:id/questions', authenticateToken, async (req, res) => {
   try {
-    const interview = await Interview.findById(req.params.id).select('questions');
+    const interview = await Interview.findById(req.params.id).select('questions role difficulty');
     
     if (!interview) {
       return res.status(404).json({ message: 'Interview not found' });
     }
 
-    res.json(interview.questions);
+    res.json({
+      questions: interview.questions,
+      role: interview.role,
+      difficulty: interview.difficulty,
+      roleDescription: POSITIONS[interview.role],
+      difficultyDescription: DIFFICULTY_LEVELS[interview.difficulty]
+    });
   } catch (error) {
     console.error('Error fetching questions:', error);
     res.status(500).json({ message: 'Failed to fetch questions' });
@@ -285,7 +354,7 @@ router.post('/:id/answer', authenticateToken, async (req, res) => {
         messages: [
           { 
             role: "system", 
-            content: "You are an expert technical interviewer. Analyze the following interview answer and provide constructive feedback and a score out of 10. Return a JSON object with 'feedback' and 'score' fields." 
+            content: `You are an expert technical interviewer evaluating a candidate for a ${interview.role} position at difficulty level ${interview.difficulty}/5. Analyze the following interview answer and provide constructive feedback and a score out of 10. Return a JSON object with 'feedback' and 'score' fields.` 
           },
           { 
             role: "user", 
@@ -320,7 +389,12 @@ router.post('/:id/answer', authenticateToken, async (req, res) => {
 
     await interview.save();
 
-    res.json({ feedback, score });
+    res.json({ 
+      feedback, 
+      score,
+      difficulty: interview.difficulty,
+      difficultyDescription: DIFFICULTY_LEVELS[interview.difficulty]
+    });
   } catch (error) {
     console.error('Error processing answer:', error);
     res.status(500).json({ 

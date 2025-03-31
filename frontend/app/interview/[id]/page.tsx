@@ -6,7 +6,7 @@ import axios from 'axios';
 import 'regenerator-runtime/runtime';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MicOff, ChevronRight, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { Mic, MicOff, ChevronRight, AlertCircle, Loader2, BarChart } from 'lucide-react';
 
 interface Question {
   _id: string;
@@ -16,11 +16,19 @@ interface Question {
   score?: number;
 }
 
+interface InterviewData {
+  questions: Question[];
+  role: string;
+  difficulty: number;
+  roleDescription: string;
+  difficultyDescription: string;
+}
+
 const Interview = () => {
   const router = useRouter();
   const { id } = useParams();
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [responses, setResponses] = useState<Question[]>([]);
+  const [interviewData, setInterviewData] = useState<InterviewData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -67,7 +75,7 @@ const Interview = () => {
         const response = await axios.get(`https://vault-4lq2.onrender.com/api/interviews/${id}/questions`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        setResponses(response.data);
+        setInterviewData(response.data);
       } catch (error) {
         console.error('Error fetching questions:', error);
         setErrorMessage('Failed to load questions. Please try again.');
@@ -106,7 +114,7 @@ const Interview = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const currentQuestion = responses[currentIndex];
+      const currentQuestion = interviewData?.questions[currentIndex];
       if (!currentQuestion?._id) {
         setErrorMessage('Invalid question data. Please refresh the page.');
         return;
@@ -123,14 +131,19 @@ const Interview = () => {
         }
       );
 
-      const updatedResponses = [...responses];
-      updatedResponses[currentIndex] = {
-        ...updatedResponses[currentIndex],
-        answer: finalTranscript,
-        feedback: response.data.feedback,
-        score: response.data.score,
-      };
-      setResponses(updatedResponses);
+      if (interviewData) {
+        const updatedQuestions = [...interviewData.questions];
+        updatedQuestions[currentIndex] = {
+          ...updatedQuestions[currentIndex],
+          answer: finalTranscript,
+          feedback: response.data.feedback,
+          score: response.data.score,
+        };
+        setInterviewData({
+          ...interviewData,
+          questions: updatedQuestions
+        });
+      }
     } catch (error) {
       console.error('Error processing answer:', error);
       setErrorMessage(
@@ -140,7 +153,7 @@ const Interview = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [transcript, transcriptBuffer, currentIndex, responses, id]);
+  }, [transcript, transcriptBuffer, currentIndex, interviewData, id]);
 
   const handleRecording = useCallback(() => {
     if (isRecording) {
@@ -151,7 +164,7 @@ const Interview = () => {
   }, [isRecording, startRecording, stopRecording]);
 
   const handleNextQuestion = useCallback(() => {
-    if (currentIndex < responses.length - 1) {
+    if (interviewData && currentIndex < interviewData.questions.length - 1) {
       setCurrentIndex(currentIndex + 1);
       resetTranscript();
       setTranscriptBuffer('');
@@ -159,12 +172,12 @@ const Interview = () => {
     } else {
       router.push('/dashboard');
     }
-  }, [currentIndex, responses.length, resetTranscript, router]);
+  }, [currentIndex, interviewData, resetTranscript, router]);
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-600 via-purple-500 to-pink-500 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+        <Loader2 className="w-8 h-8 text-white animate-spin" />
       </div>
     );
   }
@@ -186,7 +199,7 @@ const Interview = () => {
     );
   }
 
-  if (responses.length === 0) {
+  if (!interviewData || interviewData.questions.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-600 via-purple-500 to-pink-500 flex items-center justify-center">
         <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 p-8">
@@ -196,7 +209,7 @@ const Interview = () => {
     );
   }
 
-  const currentQuestion = responses[currentIndex];
+  const currentQuestion = interviewData.questions[currentIndex];
   const currentTranscript = (transcriptBuffer + ' ' + transcript).trim();
 
   return (
@@ -211,14 +224,23 @@ const Interview = () => {
         >
           <div className="p-8">
             <div className="flex items-center justify-between mb-8">
-              <div>
-                <h2 className="text-3xl font-bold text-white mb-2">
-                  Question {currentIndex + 1} of {responses.length}
+              <div className="space-y-4">
+                <h2 className="text-3xl font-bold text-white">
+                  Question {currentIndex + 1} of {interviewData.questions.length}
                 </h2>
+                <div className="flex items-center gap-4">
+                  <div className="px-3 py-1 rounded-full bg-white/10 text-white">
+                    {interviewData.role}
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-white">
+                    <BarChart className="w-4 h-4" />
+                    Level {interviewData.difficulty}
+                  </div>
+                </div>
                 <div className="h-2 bg-white/10 rounded-full w-64 overflow-hidden">
                   <div 
                     className="h-full bg-gradient-to-r from-yellow-400 to-orange-500 transition-all duration-300"
-                    style={{ width: `${((currentIndex + 1) / responses.length) * 100}%` }}
+                    style={{ width: `${((currentIndex + 1) / interviewData.questions.length) * 100}%` }}
                   />
                 </div>
               </div>
@@ -318,7 +340,7 @@ const Interview = () => {
                       : 'bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 hover:from-yellow-300 hover:to-orange-400'
                   }`}
                 >
-                  {currentIndex === responses.length - 1 ? 'Finish' : 'Next Question'}
+                  {currentIndex === interviewData.questions.length - 1 ? 'Finish' : 'Next Question'}
                   <ChevronRight className="w-5 h-5" />
                 </motion.button>
               </div>
