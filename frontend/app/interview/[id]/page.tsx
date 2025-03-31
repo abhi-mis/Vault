@@ -6,7 +6,7 @@ import axios from 'axios';
 import 'regenerator-runtime/runtime';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MicOff, ChevronRight, AlertCircle, Loader2, BarChart, BookOpen, Briefcase } from 'lucide-react';
+import { Mic, MicOff, ChevronRight, AlertCircle, Loader2, BarChart, BookOpen, Briefcase, Clock } from 'lucide-react';
 
 interface Question {
   _id: string;
@@ -35,6 +35,7 @@ const Interview = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [transcriptBuffer, setTranscriptBuffer] = useState('');
+  const [timeLeft, setTimeLeft] = useState(40);
 
   const {
     transcript,
@@ -52,6 +53,22 @@ const Interview = () => {
       }
     ]
   });
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isRecording && timeLeft > 0) {
+      timer = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            stopRecording();
+            return 40;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [isRecording, timeLeft]);
 
   useEffect(() => {
     if (browserSupportsSpeechRecognition) {
@@ -93,6 +110,7 @@ const Interview = () => {
     setErrorMessage('');
     setTranscriptBuffer('');
     resetTranscript();
+    setTimeLeft(40);
     SpeechRecognition.startListening({ 
       continuous: true,
       language: 'en-US'
@@ -102,6 +120,7 @@ const Interview = () => {
   const stopRecording = useCallback(async () => {
     SpeechRecognition.stopListening();
     setIsRecording(false);
+    setTimeLeft(40);
     
     const finalTranscript = (transcriptBuffer + ' ' + transcript).trim();
     
@@ -170,6 +189,7 @@ const Interview = () => {
       resetTranscript();
       setTranscriptBuffer('');
       setErrorMessage('');
+      setTimeLeft(40);
     } else {
       router.push('/dashboard');
     }
@@ -226,9 +246,17 @@ const Interview = () => {
           <div className="p-8">
             <div className="flex items-center justify-between mb-8">
               <div className="space-y-4">
-                <h2 className="text-3xl font-bold text-white">
-                  Question {currentIndex + 1} of {interviewData.questions.length}
-                </h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-3xl font-bold text-white">
+                    Question {currentIndex + 1} of {interviewData.questions.length}
+                  </h2>
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 text-white">
+                    <Clock className="w-5 h-5" />
+                    <span className={timeLeft <= 10 ? 'text-red-400' : 'text-white'}>
+                      {timeLeft}s
+                    </span>
+                  </div>
+                </div>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-white">
                     {interviewData.type === 'position' ? (
@@ -260,12 +288,6 @@ const Interview = () => {
 
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${listening ? 'bg-red-400 animate-pulse' : 'bg-white/30'}`} />
-                  <span className="text-white/70">
-                    {listening ? 'Recording...' : 'Not recording'}
-                  </span>
-                </div>
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}

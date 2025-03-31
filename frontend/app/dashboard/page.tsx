@@ -5,15 +5,21 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Award, Calendar, ChevronDown, LogOut, PlusCircle, Target, X, BarChart2, Clock, Filter } from 'lucide-react';
 
+interface Question {
+  _id: string;
+  question: string;
+  answer: string | null;
+  feedback: string | null;
+  score: number | null;
+  createdAt: string;
+}
+
 interface Interview {
   _id: string;
-  role: string;
-  questions: Array<{
-    question: string;
-    answer: string;
-    feedback: string;
-    score: number;
-  }>;
+  type: 'position' | 'topic';
+  subject: string;
+  difficulty: number;
+  questions: Question[];
   createdAt: string;
 }
 
@@ -22,7 +28,6 @@ export default function Dashboard() {
   const [interviews, setInterviews] = useState<Interview[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedInterview, setSelectedInterview] = useState<string | null>(null);
-  const [view, setView] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<'date' | 'score'>('date');
 
   useEffect(() => {
@@ -60,8 +65,21 @@ export default function Dashboard() {
   };
 
   const getAverageScore = (interview: Interview) => {
-    const scores = interview.questions.map(q => q.score);
-    return scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+    const answeredQuestions = interview.questions.filter(q => q.score !== null);
+    return answeredQuestions.length ? 
+      answeredQuestions.reduce((a, b) => a + (b.score || 0), 0) / answeredQuestions.length : 
+      0;
+  };
+
+  const getDifficultyLabel = (level: number) => {
+    const labels = {
+      1: 'Basic',
+      2: 'Intermediate',
+      3: 'Advanced',
+      4: 'Expert',
+      5: 'Master'
+    };
+    return labels[level as keyof typeof labels] || 'Unknown';
   };
 
   const sortedInterviews = [...interviews].sort((a, b) => {
@@ -225,10 +243,15 @@ export default function Dashboard() {
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <h3 className="text-xl font-semibold text-white mb-2">{interview.role}</h3>
-                      <div className="flex items-center text-white/70 text-sm">
-                        <Calendar className="w-4 h-4 mr-2" />
-                        {new Date(interview.createdAt).toLocaleDateString()}
+                      <h3 className="text-xl font-semibold text-white mb-2">{interview.subject}</h3>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center text-white/70 text-sm">
+                          <Calendar className="w-4 h-4 mr-2" />
+                          {new Date(interview.createdAt).toLocaleDateString()}
+                        </div>
+                        <div className="text-white/70 text-sm">
+                          {interview.type === 'position' ? 'Position' : 'Topic'} • Level {interview.difficulty} ({getDifficultyLabel(interview.difficulty)})
+                        </div>
                       </div>
                     </div>
                     <div className="flex flex-col items-end">
@@ -242,12 +265,14 @@ export default function Dashboard() {
                   <div className="mt-4">
                     <div className="flex justify-between text-white/70 text-sm mb-2">
                       <span>Progress</span>
-                      <span>{interview.questions.length} Questions</span>
+                      <span>{interview.questions.filter(q => q.answer !== null).length} / {interview.questions.length} Questions</span>
                     </div>
                     <div className="h-2 bg-white/10 rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-gradient-to-r from-yellow-400 to-orange-500"
-                        style={{ width: `${(getAverageScore(interview) / 10) * 100}%` }}
+                        style={{ 
+                          width: `${(interview.questions.filter(q => q.answer !== null).length / interview.questions.length) * 100}%` 
+                        }}
                       />
                     </div>
                   </div>
@@ -265,17 +290,23 @@ export default function Dashboard() {
                         {interview.questions.map((q, index) => (
                           <div key={index} className="bg-white/5 rounded-xl p-4">
                             <p className="text-white/90 font-medium mb-2">{q.question}</p>
-                            <div className="flex items-center gap-3">
-                              <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
-                                <div 
-                                  className="h-full bg-gradient-to-r from-yellow-400 to-orange-500"
-                                  style={{ width: `${(q.score / 10) * 100}%` }}
-                                />
-                              </div>
-                              <span className="text-white/90 font-semibold min-w-[40px]">{q.score}/10</span>
-                            </div>
-                            {q.feedback && (
-                              <p className="mt-2 text-white/70 text-sm">{q.feedback}</p>
+                            {q.answer ? (
+                              <>
+                                <div className="flex items-center gap-3">
+                                  <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                                    <div 
+                                      className="h-full bg-gradient-to-r from-yellow-400 to-orange-500"
+                                      style={{ width: `${((q.score || 0) / 10) * 100}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-white/90 font-semibold min-w-[40px]">{q.score}/10</span>
+                                </div>
+                                {q.feedback && (
+                                  <p className="mt-2 text-white/70 text-sm">{q.feedback}</p>
+                                )}
+                              </>
+                            ) : (
+                              <p className="text-white/50 text-sm italic">Not answered yet</p>
                             )}
                           </div>
                         ))}

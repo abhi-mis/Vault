@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { ArrowLeft, LineChart, Loader2, BookOpen, Briefcase } from 'lucide-react';
+import { ArrowLeft, LineChart, Loader2, BookOpen, Briefcase, Sparkles } from 'lucide-react';
 
 interface Position {
   id: string;
@@ -113,9 +113,9 @@ export default function NewInterview() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 via-purple-500 to-pink-500 relative py-12 px-4 sm:px-6 lg:px-8">
-      <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=2900')] opacity-10 bg-cover bg-center" />
+      <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=2900')] opacity-10 bg-cover bg-center mix-blend-overlay" />
       
-      <div className="relative max-w-4xl mx-auto">
+      <div className="relative max-w-7xl mx-auto">
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -129,22 +129,25 @@ export default function NewInterview() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 overflow-hidden"
+          className="backdrop-blur-xl bg-white/10 rounded-3xl border border-white/20 overflow-hidden shadow-2xl"
         >
-          <div className="p-8">
-            <div className="text-center mb-12">
-              <h1 className="text-4xl font-bold text-white mb-4">
-                Start New Interview
-              </h1>
-              <p className="text-white/70 text-lg">
-                Choose your interview type and preferences
+          <div className="p-12">
+            <div className="text-center mb-16">
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <Sparkles className="w-8 h-8 text-yellow-400" />
+                <h1 className="text-5xl font-bold text-white">
+                  Start New Interview
+                </h1>
+              </div>
+              <p className="text-white/70 text-xl">
+                Customize your interview experience
               </p>
             </div>
 
-            <div className="space-y-8">
+            <div className="space-y-12">
               <div>
-                <h2 className="text-xl font-semibold text-white mb-4">Interview Type</h2>
-                <div className="grid grid-cols-2 gap-4">
+                <h2 className="text-2xl font-semibold text-white mb-6">Interview Type</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
@@ -152,16 +155,18 @@ export default function NewInterview() {
                       setInterviewType('position');
                       setSelectedSubject('');
                     }}
-                    className={`p-6 rounded-xl border flex items-center gap-4 transition-all duration-300 ${
+                    className={`p-8 rounded-2xl border flex items-center gap-6 transition-all duration-300 ${
                       interviewType === 'position'
-                        ? 'bg-white/15 border-yellow-400/50'
+                        ? 'bg-white/15 border-yellow-400/50 shadow-lg shadow-yellow-400/10'
                         : 'bg-white/5 border-white/10 hover:bg-white/10'
                     }`}
                   >
-                    <Briefcase className="w-6 h-6 text-white" />
+                    <div className={`p-4 rounded-xl ${interviewType === 'position' ? 'bg-yellow-400/20' : 'bg-white/10'}`}>
+                      <Briefcase className={`w-8 h-8 ${interviewType === 'position' ? 'text-yellow-400' : 'text-white'}`} />
+                    </div>
                     <div className="text-left">
-                      <h3 className="text-xl font-semibold text-white">Position Based</h3>
-                      <p className="text-white/70">Interview for specific roles</p>
+                      <h3 className="text-2xl font-semibold text-white mb-2">Position Based</h3>
+                      <p className="text-white/70 text-lg">Interview for specific roles and career paths</p>
                     </div>
                   </motion.button>
 
@@ -172,96 +177,98 @@ export default function NewInterview() {
                       setInterviewType('topic');
                       setSelectedSubject('');
                     }}
-                    className={`p-6 rounded-xl border flex items-center gap-4 transition-all duration-300 ${
+                    className={`p-8 rounded-2xl border flex items-center gap-6 transition-all duration-300 ${
                       interviewType === 'topic'
-                        ? 'bg-white/15 border-yellow-400/50'
+                        ? 'bg-white/15 border-yellow-400/50 shadow-lg shadow-yellow-400/10'
                         : 'bg-white/5 border-white/10 hover:bg-white/10'
                     }`}
                   >
-                    <BookOpen className="w-6 h-6 text-white" />
+                    <div className={`p-4 rounded-xl ${interviewType === 'topic' ? 'bg-yellow-400/20' : 'bg-white/10'}`}>
+                      <BookOpen className={`w-8 h-8 ${interviewType === 'topic' ? 'text-yellow-400' : 'text-white'}`} />
+                    </div>
                     <div className="text-left">
-                      <h3 className="text-xl font-semibold text-white">Topic Based</h3>
-                      <p className="text-white/70">Focus on specific subjects</p>
+                      <h3 className="text-2xl font-semibold text-white mb-2">Topic Based</h3>
+                      <p className="text-white/70 text-lg">Focus on specific technical subjects</p>
                     </div>
                   </motion.button>
                 </div>
               </div>
 
               <div>
-                <h2 className="text-xl font-semibold text-white mb-4">
+                <h2 className="text-2xl font-semibold text-white mb-6">
                   Select {interviewType === 'position' ? 'Position' : 'Topic'}
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {subjects.map((subject) => (
                     <motion.button
                       key={subject.id}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => setSelectedSubject(subject.id)}
-                      className={`p-6 text-left rounded-xl border transition-all duration-300 ${
+                      className={`p-6 text-left rounded-2xl border transition-all duration-300 ${
                         selectedSubject === subject.id
-                          ? 'bg-white/15 border-yellow-400/50'
+                          ? 'bg-white/15 border-yellow-400/50 shadow-lg shadow-yellow-400/10'
                           : 'bg-white/5 border-white/10 hover:bg-white/10'
                       }`}
                     >
-                      <h3 className="text-xl font-semibold text-white mb-2">{subject.id}</h3>
-                      <p className="text-white/70">{subject.description}</p>
+                      <h3 className="text-2xl font-semibold text-white mb-3">{subject.id}</h3>
+                      <p className="text-white/70 text-lg">{subject.description}</p>
                     </motion.button>
                   ))}
                 </div>
               </div>
 
               <div>
-                <h2 className="text-xl font-semibold text-white mb-4">Select Difficulty</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+                <h2 className="text-2xl font-semibold text-white mb-6">Select Difficulty</h2>
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
                   {difficultyLevels.map((level) => (
                     <motion.button
                       key={level.level}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => setSelectedDifficulty(level.level)}
-                      className={`p-4 rounded-xl border text-center transition-all duration-300 ${
+                      className={`p-6 rounded-2xl border text-center transition-all duration-300 ${
                         selectedDifficulty === level.level
-                          ? 'bg-white/15 border-yellow-400/50'
+                          ? 'bg-white/15 border-yellow-400/50 shadow-lg shadow-yellow-400/10'
                           : 'bg-white/5 border-white/10 hover:bg-white/10'
                       }`}
                     >
-                      <div className="text-2xl font-bold text-white mb-2">{level.level}</div>
-                      <p className="text-white/70 text-sm">{level.description}</p>
+                      <div className="text-3xl font-bold text-white mb-3">{level.level}</div>
+                      <p className="text-white/70 text-lg">{level.description}</p>
                     </motion.button>
                   ))}
                 </div>
               </div>
 
               <div>
-                <h2 className="text-xl font-semibold text-white mb-4">Number of Questions</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <h2 className="text-2xl font-semibold text-white mb-6">Number of Questions</h2>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                   {questionCounts.map((count) => (
                     <motion.button
                       key={count}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => setQuestionCount(count)}
-                      className={`p-4 rounded-xl border text-center transition-all duration-300 ${
+                      className={`p-6 rounded-2xl border text-center transition-all duration-300 ${
                         questionCount === count
-                          ? 'bg-white/15 border-yellow-400/50'
+                          ? 'bg-white/15 border-yellow-400/50 shadow-lg shadow-yellow-400/10'
                           : 'bg-white/5 border-white/10 hover:bg-white/10'
                       }`}
                     >
-                      <div className="text-2xl font-bold text-white">{count}</div>
-                      <p className="text-white/70 text-sm">Questions</p>
+                      <div className="text-3xl font-bold text-white mb-2">{count}</div>
+                      <p className="text-white/70 text-lg">Questions</p>
                     </motion.button>
                   ))}
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end mt-8 space-x-4">
+            <div className="flex justify-end mt-12 space-x-6">
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => router.push('/dashboard')}
-                className="px-6 py-3 text-white/70 hover:text-white transition-colors"
+                className="px-8 py-4 text-xl text-white/70 hover:text-white transition-colors"
               >
                 Cancel
               </motion.button>
@@ -270,20 +277,20 @@ export default function NewInterview() {
                 whileTap={{ scale: 0.98 }}
                 onClick={startInterview}
                 disabled={!selectedSubject || isStarting}
-                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                className={`flex items-center gap-3 px-8 py-4 rounded-2xl text-xl font-semibold transition-all duration-300 ${
                   !selectedSubject || isStarting
                     ? 'bg-white/10 text-white/50 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 hover:from-yellow-300 hover:to-orange-400'
+                    : 'bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 hover:from-yellow-300 hover:to-orange-400 shadow-lg shadow-orange-500/25'
                 }`}
               >
                 {isStarting ? (
                   <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <Loader2 className="w-6 h-6 animate-spin" />
                     Starting...
                   </>
                 ) : (
                   <>
-                    <LineChart className="w-5 h-5" />
+                    <LineChart className="w-6 h-6" />
                     Start Interview
                   </>
                 )}
