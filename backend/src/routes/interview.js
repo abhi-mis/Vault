@@ -33,6 +33,27 @@ const POSITIONS = {
   'Big Data Engineer': 'Handles large-scale data processing and analytics using tools like Hadoop and Spark'
 };
 
+// Technical topics with descriptions
+const TOPICS = {
+  'Data Structures': 'Arrays, Linked Lists, Trees, Graphs, Hash Tables, etc.',
+  'Algorithms': 'Sorting, Searching, Dynamic Programming, Greedy Algorithms, etc.',
+  'Java': 'Core Java, Collections, Multithreading, Spring Framework, etc.',
+  'Python': 'Core Python, Django, Flask, Data Science Libraries, etc.',
+  'JavaScript': 'ES6+, DOM, Async Programming, Node.js, etc.',
+  'Operating Systems': 'Process Management, Memory Management, File Systems, etc.',
+  'Database Systems': 'SQL, NoSQL, Indexing, Transactions, ACID Properties, etc.',
+  'System Design': 'Scalability, Load Balancing, Caching, Microservices, etc.',
+  'Computer Networks': 'TCP/IP, HTTP, DNS, Network Security, etc.',
+  'Web Development': 'HTML, CSS, React, Angular, Vue.js, etc.',
+  'Cloud Computing': 'AWS, Azure, GCP, Docker, Kubernetes, etc.',
+  'Security': 'Cryptography, Authentication, Authorization, Security Protocols, etc.',
+  'Machine Learning': 'Supervised Learning, Neural Networks, NLP, Computer Vision, etc.',
+  'Software Engineering': 'Design Patterns, SOLID Principles, Agile, Testing, etc.',
+  'DevOps': 'CI/CD, Infrastructure as Code, Monitoring, etc.'
+};
+
+// Question count options
+const QUESTION_COUNTS = [5, 10, 15, 20];
 
 // Difficulty level descriptions
 const DIFFICULTY_LEVELS = {
@@ -52,13 +73,15 @@ const getDifficultyPrompt = (level) => {
     4: 'Focus on advanced concepts and system design challenges.',
     5: 'Include highly complex problems and cutting-edge technology questions.'
   };
-  return prompts[level] || prompts[3]; // Default to level 3 if not specified
+  return prompts[level] || prompts[3];
 };
 
-// Function to generate interview questions based on the role and difficulty
-const generateQuestionsForRole = async (role, difficulty = 3) => {
+// Function to generate interview questions based on the type (position/topic) and difficulty
+const generateQuestions = async (type, subject, difficulty = 3, count = 5) => {
   const difficultyPrompt = getDifficultyPrompt(difficulty);
-  const prompt = `Generate 5 technical interview questions for a ${role} position at difficulty level ${difficulty}/5. ${difficultyPrompt}
+  const isPosition = type === 'position';
+  
+  const prompt = `Generate ${count} technical interview questions for ${isPosition ? `a ${subject} position` : `the topic: ${subject}`} at difficulty level ${difficulty}/5. ${difficultyPrompt}
 
 Format each question as a complete sentence ending with a question mark. Return ONLY a JSON array of strings.
 
@@ -66,9 +89,7 @@ Example format:
 [
   "What is the difference between let and const in JavaScript?",
   "Can you explain how React's virtual DOM works?",
-  "What are the benefits of using TypeScript over JavaScript?",
-  "How does event delegation work in the DOM?",
-  "What is the purpose of the useEffect hook in React?"
+  "What are the benefits of using TypeScript over JavaScript?"
 ]`;
 
   try {
@@ -93,7 +114,7 @@ Example format:
           }
         ],
         temperature: 0.7,
-        max_tokens: 1000
+        max_tokens: 1500
       })
     });
 
@@ -121,8 +142,8 @@ Example format:
           .map(q => q.trim())
           .filter(q => q.endsWith('?'));
         
-        if (validQuestions.length >= 3) { // At least 3 valid questions
-          return validQuestions.slice(0, 5); // Return max 5 questions
+        if (validQuestions.length >= 3) {
+          return validQuestions.slice(0, count);
         }
       }
     } catch (error) {
@@ -133,21 +154,10 @@ Example format:
     const questionRegex = /(?:^|\n)(?:\d+\.\s*)?([^.\n]+\?)/g;
     const matches = [...questionsText.matchAll(questionRegex)]
       .map(match => match[1].trim())
-      .filter(q => q.length > 10 && q.endsWith('?')); // Ensure meaningful questions
+      .filter(q => q.length > 10 && q.endsWith('?'));
 
     if (matches.length >= 3) {
-      return matches.slice(0, 5);
-    }
-
-    // If we still don't have enough questions, try line-by-line extraction
-    const lineQuestions = questionsText
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 10 && line.endsWith('?'))
-      .slice(0, 5);
-
-    if (lineQuestions.length >= 3) {
-      return lineQuestions;
+      return matches.slice(0, count);
     }
 
     throw new Error('Failed to extract valid questions');
@@ -166,7 +176,7 @@ const processAIResponse = async (content) => {
       if (typeof parsed.feedback === 'string' && typeof parsed.score === 'number') {
         return {
           feedback: parsed.feedback,
-          score: Math.min(Math.max(Math.round(parsed.score), 0), 10) // Ensure score is between 0-10
+          score: Math.min(Math.max(Math.round(parsed.score), 0), 10)
         };
       }
     } catch (e) {
@@ -220,7 +230,7 @@ const processAIResponse = async (content) => {
     if (feedbackMatch) {
       return {
         feedback: feedbackMatch[1].trim(),
-        score: 5 // Neutral score when we can't extract one
+        score: 5
       };
     }
 
@@ -231,13 +241,18 @@ const processAIResponse = async (content) => {
   }
 };
 
-// Route to get available positions
-router.get('/positions', authenticateToken, (req, res) => {
+// Route to get available positions, topics, and question counts
+router.get('/options', authenticateToken, (req, res) => {
   res.json({
     positions: Object.entries(POSITIONS).map(([id, description]) => ({
       id,
       description
     })),
+    topics: Object.entries(TOPICS).map(([id, description]) => ({
+      id,
+      description
+    })),
+    questionCounts: QUESTION_COUNTS,
     difficultyLevels: Object.entries(DIFFICULTY_LEVELS).map(([level, description]) => ({
       level: parseInt(level),
       description
@@ -248,14 +263,22 @@ router.get('/positions', authenticateToken, (req, res) => {
 // Route to create a new interview session
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { role, difficulty } = req.body;
+    const { type, subject, difficulty, questionCount } = req.body;
     
-    if (!role) {
-      return res.status(400).json({ message: 'Role is required' });
+    if (!type || !subject) {
+      return res.status(400).json({ message: 'Type and subject are required' });
     }
 
-    if (!POSITIONS[role]) {
-      return res.status(400).json({ message: 'Invalid role selected' });
+    if (type !== 'position' && type !== 'topic') {
+      return res.status(400).json({ message: 'Invalid type. Must be either "position" or "topic"' });
+    }
+
+    if (type === 'position' && !POSITIONS[subject]) {
+      return res.status(400).json({ message: 'Invalid position selected' });
+    }
+
+    if (type === 'topic' && !TOPICS[subject]) {
+      return res.status(400).json({ message: 'Invalid topic selected' });
     }
 
     // Validate difficulty level
@@ -264,7 +287,13 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'Difficulty level must be between 1 and 5' });
     }
 
-    const questions = await generateQuestionsForRole(role, difficultyLevel);
+    // Validate question count
+    const count = parseInt(questionCount) || 5;
+    if (!QUESTION_COUNTS.includes(count)) {
+      return res.status(400).json({ message: 'Invalid question count' });
+    }
+
+    const questions = await generateQuestions(type, subject, difficultyLevel, count);
     
     if (!questions || questions.length === 0) {
       return res.status(500).json({ message: 'Failed to generate interview questions' });
@@ -279,7 +308,8 @@ router.post('/', authenticateToken, async (req, res) => {
 
     const interview = new Interview({
       userId: req.user.userId,
-      role,
+      type,
+      subject,
       difficulty: difficultyLevel,
       questions: formattedQuestions,
     });
@@ -308,17 +338,22 @@ router.get('/user', authenticateToken, async (req, res) => {
 // Route to fetch questions for a specific interview
 router.get('/:id/questions', authenticateToken, async (req, res) => {
   try {
-    const interview = await Interview.findById(req.params.id).select('questions role difficulty');
+    const interview = await Interview.findById(req.params.id).select('questions type subject difficulty');
     
     if (!interview) {
       return res.status(404).json({ message: 'Interview not found' });
     }
 
+    const description = interview.type === 'position' ? 
+      POSITIONS[interview.subject] : 
+      TOPICS[interview.subject];
+
     res.json({
       questions: interview.questions,
-      role: interview.role,
+      type: interview.type,
+      subject: interview.subject,
       difficulty: interview.difficulty,
-      roleDescription: POSITIONS[interview.role],
+      subjectDescription: description,
       difficultyDescription: DIFFICULTY_LEVELS[interview.difficulty]
     });
   } catch (error) {
@@ -368,7 +403,7 @@ router.post('/:id/answer', authenticateToken, async (req, res) => {
         messages: [
           { 
             role: "system", 
-            content: `You are an expert technical interviewer evaluating a candidate for a ${interview.role} position at difficulty level ${interview.difficulty}/5. Analyze the following interview answer and provide constructive feedback and a score out of 10. Return a JSON object with 'feedback' and 'score' fields.` 
+            content: `You are an expert technical interviewer evaluating a candidate for ${interview.type === 'position' ? `a ${interview.subject} position` : `questions about ${interview.subject}`} at difficulty level ${interview.difficulty}/5. Analyze the following interview answer and provide constructive feedback and a score out of 10. Return a JSON object with 'feedback' and 'score' fields.` 
           },
           { 
             role: "user", 

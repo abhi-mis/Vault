@@ -6,7 +6,7 @@ import axios from 'axios';
 import 'regenerator-runtime/runtime';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MicOff, ChevronRight, AlertCircle, Loader2, BarChart } from 'lucide-react';
+import { Mic, MicOff, ChevronRight, AlertCircle, Loader2, BarChart, BookOpen, Briefcase } from 'lucide-react';
 
 interface Question {
   _id: string;
@@ -18,9 +18,10 @@ interface Question {
 
 interface InterviewData {
   questions: Question[];
-  role: string;
+  type: 'position' | 'topic';
+  subject: string;
   difficulty: number;
-  roleDescription: string;
+  subjectDescription: string;
   difficultyDescription: string;
 }
 
@@ -229,8 +230,13 @@ const Interview = () => {
                   Question {currentIndex + 1} of {interviewData.questions.length}
                 </h2>
                 <div className="flex items-center gap-4">
-                  <div className="px-3 py-1 rounded-full bg-white/10 text-white">
-                    {interviewData.role}
+                  <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-white">
+                    {interviewData.type === 'position' ? (
+                      <Briefcase className="w-4 h-4" />
+                    ) : (
+                      <BookOpen className="w-4 h-4" />
+                    )}
+                    {interviewData.subject}
                   </div>
                   <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-white">
                     <BarChart className="w-4 h-4" />
