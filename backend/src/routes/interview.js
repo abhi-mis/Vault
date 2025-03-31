@@ -17,16 +17,30 @@ const POSITIONS = {
   'DevOps Engineer': 'DevOps Specialist - Focus on deployment, automation, and infrastructure',
   'Mobile Developer': 'Mobile Application Developer - Specializing in iOS/Android development',
   'ML Engineer': 'Machine Learning Engineer - Focus on AI and machine learning applications',
-  'QA Engineer': 'Quality Assurance Engineer - Focus on testing and quality assurance'
+  'QA Engineer': 'Quality Assurance Engineer - Focus on testing and quality assurance',
+  'Embedded Software Engineer': 'Develops software for embedded systems and IoT devices',
+  'Security Engineer': 'Cybersecurity Specialist - Protects applications and infrastructure from threats',
+  'Site Reliability Engineer (SRE)': 'Ensures system reliability, scalability, and performance through automation',
+  'Cloud Engineer': 'Works on cloud infrastructure, deployment, and scalability using AWS, Azure, or GCP',
+  'Data Engineer': 'Designs and maintains data pipelines, databases, and ETL processes for analytics',
+  'Blockchain Engineer': 'Develops blockchain-based applications, smart contracts, and decentralized systems',
+  'Game Developer': 'Specializes in game design, development, and optimization using engines like Unity or Unreal',
+  'AR/VR Engineer': 'Focuses on augmented reality (AR) and virtual reality (VR) applications',
+  'Firmware Engineer': 'Develops low-level software that interacts with hardware components',
+  'Network Engineer': 'Manages and optimizes network infrastructure and protocols',
+  'Computer Vision Engineer': 'Works on image processing, object detection, and AI-driven vision applications',
+  'Hardware Engineer': 'Designs and tests computer hardware components and embedded systems',
+  'Big Data Engineer': 'Handles large-scale data processing and analytics using tools like Hadoop and Spark'
 };
+
 
 // Difficulty level descriptions
 const DIFFICULTY_LEVELS = {
-  1: 'Basic - Fundamental concepts and simple problems',
-  2: 'Intermediate - Standard industry practices and moderate complexity',
-  3: 'Advanced - Complex scenarios and architectural decisions',
-  4: 'Expert - Advanced concepts and system design',
-  5: 'Master - Highly complex problems and cutting-edge technologies'
+  1: 'Basic',
+  2: 'Intermediate',
+  3: 'Advanced',
+  4: 'Expert',
+  5: 'Master'
 };
 
 // Function to adjust prompt based on difficulty level
